@@ -11,6 +11,13 @@ import java.nio.ByteBuffer;
 import java.io.*;
 
 public class UDPServer {
+
+    public static final byte POS_MESSAGE_TYPE = 0;
+    public static final byte POS_NICKNAME_SIZE = 1;
+    public static final byte POS_BEGIN_NICKNAME = 2;
+    public static final byte POS_MESSAGE_SIZE = 65;
+    public static final byte POS_BEGIN_MESSAGE = 66;
+
     public static ByteBuffer createHeader(
             byte messageType,
             byte nickSize,
@@ -23,25 +30,55 @@ public class UDPServer {
 
         byte normalizedNickSize = nickSize > 64 ? (byte) 64 : nickSize;
         byte normalizedMessageSize = (byte) messageSize > 255 ? (byte) 255 : messageSize;
-        int offset = 2;
 
-        buffer.put(0, messageType);
-        buffer.put(1, normalizedNickSize);
+        buffer.put(POS_MESSAGE_TYPE, messageType);
+        buffer.put(POS_NICKNAME_SIZE, normalizedNickSize);
 
+        int offset = POS_BEGIN_NICKNAME;
         for (int i = 0; i < normalizedNickSize; i++) {
             buffer.put(offset, nicknameInBytes[i]);
             offset++;
         }
 
-        buffer.put(66, normalizedMessageSize);
+        buffer.put(POS_MESSAGE_SIZE, normalizedMessageSize);
 
-        offset = 67;
+        offset = POS_BEGIN_MESSAGE;
         for (int i = 0; i < normalizedMessageSize; i++) {
             buffer.put(offset, messageInBytes[i]);
             offset++;
         }
 
         return buffer;
+    }
+
+    public static String getNickName(ByteBuffer header) {
+        byte nicknameSize = header.get(POS_NICKNAME_SIZE);
+        byte[] nicknameBytes = new byte[nicknameSize];
+
+        byte position = POS_BEGIN_NICKNAME;
+        for (int i = 0; i < nicknameSize; i++) {
+            nicknameBytes[i] = header.get(position);
+            position++;
+        }
+
+        String nickname = new String(nicknameBytes);
+
+        return nickname;
+    }
+
+    public static String getMessage(ByteBuffer header) {
+        byte messageSize = header.get(POS_MESSAGE_SIZE);
+        byte[] messageBytes = new byte[messageSize];
+
+        byte position = POS_BEGIN_MESSAGE;
+        for (int i = 0; i < messageSize; i++) {
+            messageBytes[i] = header.get(position);
+            position++;
+        }
+
+        String message = new String(messageBytes);
+
+        return message;
     }
 
     public static void main(String args[]) {
@@ -55,6 +92,10 @@ public class UDPServer {
         ByteBuffer header = createHeader(messageType, nicknameLength, nickname, messageLength, message);
         // DatagramSocket senderDgramSocket = null;
         // DatagramSocket receiverDgramSocket = null;
+
+        // Obtem as informações do header que recebo do outro usuário
+        String remoteUserNickName = getNickName(header);
+        String remoteUserMessage = getMessage(header);
         int resp = 0;
 
         // try {
