@@ -12,28 +12,28 @@ import java.io.*;
 
 public class UDPServer {
     public static ByteBuffer createHeader(
-            int messageType,
-            int nickSize,
+            byte messageType,
+            byte nickSize,
             String nickname,
-            int messageSize,
+            byte messageSize,
             String message) {
         ByteBuffer buffer = ByteBuffer.allocate(322);
         byte[] nicknameInBytes = nickname.getBytes();
         byte[] messageInBytes = message.getBytes();
 
-        int normalizedNickSize = nickSize > 64 ? 64 : nickSize;
-        int normalizedMessageSize = messageSize > 255 ? 255 : messageSize;
+        byte normalizedNickSize = nickSize > 64 ? (byte) 64 : nickSize;
+        byte normalizedMessageSize = (byte) messageSize > 255 ? (byte) 255 : messageSize;
         int offset = 2;
 
-        buffer.put(0, (byte) messageType);
-        buffer.put(1, (byte) normalizedNickSize);
+        buffer.put(0, messageType);
+        buffer.put(1, normalizedNickSize);
 
         for (int i = 0; i < normalizedNickSize; i++) {
             buffer.put(offset, nicknameInBytes[i]);
             offset++;
         }
 
-        buffer.put(66, (byte) normalizedMessageSize);
+        buffer.put(66, normalizedMessageSize);
 
         offset = 67;
         for (int i = 0; i < normalizedMessageSize; i++) {
@@ -48,11 +48,14 @@ public class UDPServer {
 
         String nickname = "Jhonatan";
         String message = "oi!";
+        byte messageType = 1;
+        byte nicknameLength = (byte) nickname.length();
+        byte messageLength = (byte) message.length();
 
-        ByteBuffer header = createHeader(1, nickname.length(), nickname, message.length(), message);
+        ByteBuffer header = createHeader(messageType, nicknameLength, nickname, messageLength, message);
         // DatagramSocket senderDgramSocket = null;
         // DatagramSocket receiverDgramSocket = null;
-        // int resp = 0;
+        int resp = 0;
 
         // try {
         // dgramSocket = new DatagramSocket(6666); // cria um socket datagrama em uma
