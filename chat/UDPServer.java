@@ -11,22 +11,28 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
-
-import javax.swing.JOptionPane;
-
 import java.io.*;
 
 public class UDPServer {
+
+    public static final String ANSI_GREEN = "\u001B[32m";
+    public static final String ANSI_RESET = "\u001B[0m";
+
     public static void main(String args[]) {
         DatagramSocket dgramSocket = null;
+        Scanner reader = new Scanner(System.in);
         try {
 
-            int srcPort = Integer.parseInt(JOptionPane.showInputDialog("Digite a porta de origem:"));
+            System.out.print(ANSI_GREEN + "Digite a porta de origem: " + ANSI_RESET);
+            int srcPort = reader.nextInt();
 
             dgramSocket = new DatagramSocket(srcPort); // cria um socket datagrama em uma
 
-            int dstPort = Integer.parseInt(JOptionPane.showInputDialog("Digite a porta de destino:"));
-            String nickname = new String(JOptionPane.showInputDialog("Digite seu nome de usuário:"));
+            System.out.print(ANSI_GREEN + "Digite a porta de destino: " + ANSI_RESET);
+            int dstPort = reader.nextInt();
+
+            System.out.print(ANSI_GREEN + "Digite seu nome de usuário: " + ANSI_RESET);
+            String nickname = reader.next();
 
             /* armazena o IP do destino */
             InetAddress serverAddr = InetAddress.getByName("127.0.0.1");
@@ -39,6 +45,7 @@ public class UDPServer {
             receive.start();
 
             send.join();
+            reader.close();
 
         } catch (SocketException e) {
             System.out.println("SocketException: " + e.getMessage());
@@ -63,6 +70,8 @@ class SendDatagramThread extends Thread {
     public static final String ANSI_GREEN = "\u001B[32m";
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_RED = "\u001B[31m";
+    public static final String ANSI_BLUE = "\u001B[34m";
+    public static final String ANSI_YELLOW = "\u001B[33m";
 
     DatagramSocket datagramSocket;
     InetAddress address;
@@ -135,16 +144,16 @@ class SendDatagramThread extends Thread {
     void printMessage(String message, byte messageType) {
         switch (messageType) {
             case 1:
-                System.out.println(ANSI_RED + "Você" + ": " + ANSI_RESET + "<Text> " + message);
+                System.out.println(ANSI_RED + "Você" + " <Text>: " + ANSI_RESET + message);
                 break;
             case 2:
-                System.out.println(ANSI_RED + "Você" + ": " + ANSI_RESET + "<Emoji> " + message);
+                System.out.println(ANSI_BLUE + "Você" + " <Emoji>: " + ANSI_RESET + message);
                 break;
             case 3:
-                System.out.println(ANSI_RED + "Você" + ": " + ANSI_RESET + "<URL> " + message);
+                System.out.println(ANSI_GREEN + "Você" + " <URL>: " + ANSI_RESET + message);
                 break;
             case 4:
-                System.out.println(ANSI_RED + "Você" + ": " + ANSI_RESET + "<ECHO> " + message);
+                System.out.println(ANSI_YELLOW + "Você" + " <ECHO>: " + ANSI_RESET + message);
                 break;
         }
     }
@@ -157,7 +166,7 @@ class SendDatagramThread extends Thread {
 
         Scanner reader = new Scanner(System.in);
 
-        text = reader.nextLine();
+        text = reader.next();
 
         if (text.contains("emoji")) {
             messageType = "2";
@@ -176,10 +185,27 @@ class SendDatagramThread extends Thread {
         return message;
     }
 
+    void printHelpHeader() {
+        System.out.printf("\n");
+        System.out.printf("===================================================\n");
+        System.out.println("Seja bem vindo ao ChatUDP");
+        System.out.printf("===================================================\n");
+
+        System.out.println(ANSI_YELLOW + "emoji" + ANSI_RESET + " (digite emoji e será listado as opções)");
+        System.out.println(ANSI_YELLOW + "url" + ANSI_RESET + " link_do_site");
+        System.out.println(ANSI_YELLOW + "echo" + ANSI_RESET + " texto_conteudo_echo");
+        System.out.println("Texto normal (somente digitar a mensagem desejada)");
+        System.out.printf("===================================================");
+        System.out.printf("\n");
+
+    }
+
     /* metodo executado ao iniciar a thread - start() */
     @Override
     public void run() {
         try {
+
+            printHelpHeader();
             String message = "";
             do {
 
@@ -226,6 +252,8 @@ class ReceiveDatagramThread extends Thread {
     public static final String ANSI_GREEN = "\u001B[32m";
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_RED = "\u001B[31m";
+    public static final String ANSI_BLUE = "\u001B[34m";
+    public static final String ANSI_YELLOW = "\u001B[33m";
 
     DatagramSocket datagramSocket;
 
@@ -270,16 +298,16 @@ class ReceiveDatagramThread extends Thread {
     void printMessage(String message, byte messageType, String nickname) {
         switch (messageType) {
             case 1:
-                System.out.println(ANSI_RED + nickname + ": " + ANSI_RESET + "<Text>" + message);
+                System.out.println(ANSI_RED + nickname + " <Text>: " + ANSI_RESET + "" + message);
                 break;
             case 2:
-                System.out.println(ANSI_RED + nickname + ": " + ANSI_RESET + "<Emoji>" + message);
+                System.out.println(ANSI_BLUE + nickname + " <Emoji>: " + ANSI_RESET + message);
                 break;
             case 3:
-                System.out.println(ANSI_RED + nickname + ": " + ANSI_RESET + "<URL>" + message);
+                System.out.println(ANSI_GREEN + nickname + " <URL>: " + ANSI_RESET + message);
                 break;
             case 4:
-                System.out.println(ANSI_RED + nickname + ": " + ANSI_RESET + "<ECHO>" + message);
+                System.out.println(ANSI_YELLOW + nickname + " <ECHO>: " + ANSI_RESET + message);
                 break;
         }
     }
