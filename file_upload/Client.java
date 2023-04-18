@@ -15,6 +15,8 @@ import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -26,13 +28,15 @@ public class Client {
   public static void main(String args[]) {
     try {
       int serverPort = 6666; // porta do servidor
+      int clientPort = 6665; // porta do servidor
 
       /* cria um socket e mapeia a porta para aguardar conexao */
       // DatagramSocket dgramSocket = new DatagramSocket(serverPort);
-      DatagramSocket dgramSocket = null;
+      InetAddress serverAddr = InetAddress.getByName("127.0.0.1");
+      DatagramSocket dgramSocket = new DatagramSocket(clientPort);
 
       /* cria um thread para atender a conexao */
-      ClientThread c = new ClientThread(dgramSocket);
+      ClientThread c = new ClientThread(dgramSocket, serverAddr, serverPort);
 
       /* inicializa a thread */
       c.start();
@@ -46,24 +50,26 @@ public class Client {
 
 class ClientThread extends Thread {
 
-  public static final byte POS_FILENAME_SIZE = 0;
-  public static final byte POS_FILENAME = 1;
-  public static final byte POS_
+  public static final int POS_FILENAME_SIZE = 0;
+  public static final int POS_FILENAME = 1;
+  public static final int POS_FILE_SIZE = 33;
+  public static final int POS_CHUNK_SIZE = 35;
+  public static final int POS_CHUNK = 37;
+  public static final int POS_CHECKSUM = 1061;
+  public static final int POS_ORDER = 1081;
 
   DatagramSocket dgramSocket;
   String currentPath;
+  int port;
+  InetAddress address;
 
-  public ClientThread(DatagramSocket dgramSocket) {
+  public ClientThread(DatagramSocket dgramSocket, InetAddress address, int port) {
     try {
       this.dgramSocket = dgramSocket;
+      this.address = address;
+      this.port = port;
 
-      File theDir = new File("./file_upload/uploads");
-      if (!theDir.exists()) {
-        theDir.mkdirs();
-      }
-
-      // aqui devemos concatenar o nome da pasta do usuario
-      this.currentPath = System.getProperty("user.dir") + "/file_upload/uploads";
+      this.currentPath = System.getProperty("user.dir");
     } catch (Exception ioe) {
       System.out.println("IOE:" + ioe.getMessage());
     }
@@ -149,6 +155,19 @@ class ClientThread extends Thread {
 
   }
 
+  public static byte[] readFileToByteArray(String fileName) {
+    File file = new File(fileName);
+    byte[] fileContent = new byte[(int) file.length()];
+
+    try (FileInputStream fis = new FileInputStream(file)) {
+      fis.read(fileContent);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    return fileContent;
+  }
+
   void sendFile(String filename) {
     String path = this.currentPath + "/" + filename;
 
@@ -157,7 +176,7 @@ class ClientThread extends Thread {
     if (!file.exists())
       return;
 
-    ByteBuffer header = ByteBuffer.allocate(1306); // Criando header
+    ByteBuffer header = ByteBuffer.allocate(1310); // Criando header
     header.order(ByteOrder.BIG_ENDIAN);
 
     byte lengthFilename = (byte) filename.length();
@@ -172,6 +191,89 @@ class ClientThread extends Thread {
     for (int i = 0; i < normalizedFilenameSize; i++) {
       header.put(offset, fileNameInBytes[i]); //
       offset++;
+    }
+
+    // Adicionando tamanho do arquivo no header
+    byte[] fileContent = readFileToByteArray(path);
+    int fileSize = fileContent.length;
+    header.putInt(POS_FILE_SIZE, fileSize);
+
+    // transformando header in byteArray
+    byte[] headerByteArray = header.array();
+
+    // /* cria um pacote datagrama */
+    DatagramPacket request = new DatagramPacket(
+        headerByteArray,
+        headerByteArray.length,
+        this.address,
+        this.port);
+
+    // /* envia o primeiro pacote */
+    try {
+      this.dgramSocket.send(request);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+
+    // Calculando quantidade de chunks totais
+    int amountOfChunks = fileSize / 1024;
+    int chunkAmmount = amountOfChunks > 1 ? amountOfChunks : 1;
+
+    int start = 0;
+    int end = fileContent.length > 1024 ? 1024 : fileContent.length;
+
+    // enviando chunks
+    for (int i = 0; i < chunkAmmount; i++) {
+      byte[] chunk = Arrays.copyOfRange(fileContent, start, end);
+      start = end;
+      end += 1024;
+
+      if (end > fileContent.length)
+        end = fileContent.length;
+
+      short ammounOfBytesInChunk = (short) ((short) end - start);
+      header.putShort(POS_CHUNK_SIZE, ammounOfBytesInChunk);
+
+      header.position(POS_CHUNK);
+      header.put(chunk);
+      header.putInt(POS_ORDER, i);
+      headerByteArray = header.array();
+
+      request = new DatagramPacket(
+          headerByteArray,
+          headerByteArray.length,
+          this.address,
+          this.port);
+
+      try {
+        this.dgramSocket.send(request);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+
+    // Create MD5 message digest instance
+    MessageDigest md;
+    try {
+      md = MessageDigest.getInstance("MD5");
+      // Convert input string to byte array
+      byte[] hashBytes = md.digest(fileContent);
+
+      header.position(POS_CHECKSUM);
+      header.put(hashBytes);
+
+      request = new DatagramPacket(
+          headerByteArray,
+          headerByteArray.length,
+          this.address,
+          this.port);
+
+      this.dgramSocket.send(request);
+
+    } catch (NoSuchAlgorithmException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
     }
 
   }
