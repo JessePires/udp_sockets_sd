@@ -1,0 +1,1 @@
+"Tamanho nome arquivo(1 byte):32, Nome Arquivo (255 bytes):32, Tamanho total do arquivo (4 bytes):32, Quantidade de bytes chunk (2 bytes):32, Chunk (1024 bytes):96, Checksum (20 bytes):32"

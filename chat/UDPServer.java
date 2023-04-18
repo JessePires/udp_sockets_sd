@@ -4,6 +4,11 @@ package chat;
  * UDPServer: Servidor UDP
  * Descricao: Recebe um datagrama de um cliente, imprime o conteudo e retorna o mesmo
  * datagrama ao cliente
+ * 
+ * Alunos: Jhonatan Guilherme de Oliveira Cunha
+ * 
+ * Data de Início: 04/04/2023
+ * Data última atualização: 18/04/2023
  */
 
 import java.net.*;
@@ -39,7 +44,7 @@ public class UDPServer {
             int serverPort = dstPort; // porta do servidor
 
             SendDatagramThread send = new SendDatagramThread(dgramSocket, serverAddr, serverPort, nickname);
-            ReceiveDatagramThread receive = new ReceiveDatagramThread(dgramSocket);
+            ReceiveDatagramThread receive = new ReceiveDatagramThread(dgramSocket, serverAddr, serverPort);
 
             send.start();
             receive.start();
@@ -166,17 +171,25 @@ class SendDatagramThread extends Thread {
 
         Scanner reader = new Scanner(System.in);
 
-        text = reader.next();
+        text = reader.nextLine();
 
         if (text.contains("emoji")) {
             messageType = "2";
+
             this.printEmojis();
             Integer option = reader.nextInt();
+
+            while (option > this.emoji.size() || option < 1) {
+                System.out.println("Opção inválida. Escolha um emoji novamente.");
+                this.printEmojis();
+                option = reader.nextInt();
+            }
+
             text = this.emoji.get(option);
         } else if (text.contains("url ")) {
-            messageType = "2";
-        } else if (text.contains("echo ")) {
             messageType = "3";
+        } else if (text.contains("echo ")) {
+            messageType = "4";
         }
 
         message.put(0, messageType);
@@ -256,9 +269,13 @@ class ReceiveDatagramThread extends Thread {
     public static final String ANSI_YELLOW = "\u001B[33m";
 
     DatagramSocket datagramSocket;
+    InetAddress address;
+    int port;
 
-    public ReceiveDatagramThread(DatagramSocket datagramSocket) {
+    public ReceiveDatagramThread(DatagramSocket datagramSocket, InetAddress address, int port) {
         this.datagramSocket = datagramSocket;
+        this.address = address;
+        this.port = port;
     }
 
     public String getNickName(ByteBuffer header) {
@@ -309,6 +326,9 @@ class ReceiveDatagramThread extends Thread {
             case 4:
                 System.out.println(ANSI_YELLOW + nickname + " <ECHO>: " + ANSI_RESET + message);
                 break;
+            case 5:
+                System.out.println(ANSI_YELLOW + nickname + " <ECHO>: " + ANSI_RESET + message);
+                break;
         }
     }
 
@@ -331,6 +351,18 @@ class ReceiveDatagramThread extends Thread {
                 byte messageType = getMessageType(header);
 
                 this.printMessage(message, messageType, nickname);
+
+                if (messageType == 4) {
+                    buffer[0] = 5; // Colocando tipo echo response na mensagem de retorno do comando echo
+                    DatagramPacket response = new DatagramPacket(
+                            buffer,
+                            buffer.length,
+                            this.address,
+                            this.port);
+
+                    // /* envia o pacote */
+                    this.datagramSocket.send(response);
+                }
             }
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
