@@ -231,7 +231,7 @@ class ClientThread extends Thread {
       if (end > fileContent.length)
         end = fileContent.length;
 
-      short ammounOfBytesInChunk = (short) ((short) end - start);
+      short ammounOfBytesInChunk = (short) (chunk.length);
       header.putShort(POS_CHUNK_SIZE, ammounOfBytesInChunk);
 
       header.position(POS_CHUNK);
@@ -252,10 +252,10 @@ class ClientThread extends Thread {
       }
     }
 
-    // Create MD5 message digest instance
+    // Create SHA-1 message digest instance
     MessageDigest md;
     try {
-      md = MessageDigest.getInstance("MD5");
+      md = MessageDigest.getInstance("SHA-1");
       // Convert input string to byte array
       byte[] hashBytes = md.digest(fileContent);
 

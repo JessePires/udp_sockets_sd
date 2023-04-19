@@ -12,6 +12,7 @@ package file_upload;
 import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.io.*;
 
@@ -47,6 +48,7 @@ class ServerThread extends Thread {
     public static final int POS_CHUNK = 37;
     public static final int POS_CHECKSUM = 1061;
     public static final int POS_ORDER = 1081;
+    public static final int CHECKSUM_SIZE = 20;
 
     DatagramSocket dgramSocket;
     String currentPath;
@@ -104,12 +106,50 @@ class ServerThread extends Thread {
                     this.dgramSocket.receive(reply);
                     header = ByteBuffer.wrap(buffer);
                     header.order(ByteOrder.BIG_ENDIAN);
-                    short order = header.getShort(POS_ORDER);
-                    short chunkSize = header.getShort(POS_CHUNK_SIZE);
+                    header.position(POS_ORDER);
+                    short order = header.getShort();
+                    header.position(POS_CHUNK_SIZE);
+                    short chunkSize = header.getShort();
                     int start = order * i;
                     int end = start + chunkSize;
-                    byte[] chunk = header.get(POS_CHUNK);
-                    file = Arrays.copyOfRange(, start, end);
+
+                    for (int j = start; j < end; j++) {
+                        file[j] = header.get(POS_CHUNK + j);
+                    }
+                }
+
+                this.dgramSocket.receive(reply);
+                header = ByteBuffer.wrap(buffer);
+                header.order(ByteOrder.BIG_ENDIAN);
+                header.get(POS_CHECKSUM);
+
+                byte[] checksum = new byte[CHECKSUM_SIZE];
+
+                for (int i = 0; i < CHECKSUM_SIZE; i++) {
+                    checksum[i] = header.get(POS_CHECKSUM + i);
+                }
+
+                MessageDigest md;
+                try {
+                    md = MessageDigest.getInstance("SHA-1");
+                    // Convert input string to byte array
+                    byte[] hashBytes = md.digest(file);
+
+                    if (!Arrays.equals(checksum, hashBytes)) {
+                        System.out.println("Algo de errado ocorreu no upload.");
+                        return;
+                    }
+
+                    try {
+                        FileOutputStream fos = new FileOutputStream(this.currentPath + "/" + filename);
+                        fos.write(file);
+                        fos.close();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+
+                } catch (Exception e) {
+                    System.out.println(e.getStackTrace().toString());
                 }
 
                 System.out.println("aaa");
