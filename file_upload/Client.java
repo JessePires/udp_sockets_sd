@@ -2,11 +2,42 @@ package file_upload;
 
 /**
  * Descrição: Servidor UDP para upload de arquivos.
- *  * 
+ *  
  * Autores: Jhonatan Guilherme de Oliveira Cunha, Jessé Pires Barbato Rocha
  * 
+ * 
+ * A requisição ao servidor foi feita utilizando o seguinte protocolo:
+ * 
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                  Tamanho nome arquivo(1 byte)                 |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                    Nome Arquivo (255 bytes)                   |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |               Tamanho total do arquivo (4 bytes)              |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |               Quantidade de bytes chunk (2 bytes)             |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * 
+ * 
+ * 1. O cliente constroi o header acima, informando os dados do arquivo.
+ * 2. O cliente envia o pacote ao servidor e aguarda a resposta de 1 byte.
+ * 3. O cliente começa a enviar os chunks de bytes 1024 bytes
+ * 
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                       Chunk (1024 bytes)                      |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * 
+ * 4. A cada chunk enviado, o cliente aguarda o servidor responder com 1 byte de confirmação.
+ * 5. Após o envio de todos os chunks, o cliente envia o checksum ao servidor.
+ * 
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                       Checksum (20 bytes)                     |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * 
+ * 6. O servidor calcula o checksum do arquivo chegou para ele, caso for válido, o arquivo é escrito em disco.
+ * 
  * Data de criação: 17/03/2023
- * Data última atualização: 11/04/2023 
+ * Data última atualização: 29/06/2023 
  */
 
 import java.net.*;
@@ -76,85 +107,6 @@ class ClientThread extends Thread {
     }
   }
 
-  private void lsCommand() {
-    try {
-      File directory = new File(this.currentPath);
-      File[] arrayFiles = directory.listFiles();
-
-      List<String> fileList = new ArrayList<String>();
-
-      for (File f : arrayFiles) {
-        if (f.isFile()) {
-          fileList.add(f.getName());
-        }
-      }
-
-      for (String fileItem : fileList) {
-        System.out.println(fileItem);
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-  }
-
-  private void getDirs() {
-    try {
-      File directory = new File(this.currentPath);
-      File[] arrayFiles = directory.listFiles();
-
-      // create a new ArrayList
-      List<String> fileList = new ArrayList<String>();
-
-      for (File f : arrayFiles) {
-        if (f.isDirectory()) {
-          fileList.add(f.getName());
-        }
-      }
-
-      for (String fileItem : fileList) {
-        System.out.println(fileItem);
-      }
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-  }
-
-  private void cdCommand(String args) {
-    try {
-      String[] argsArray = args.split("/");
-
-      if (argsArray.length == 0) {
-        return;
-      }
-
-      String[] currentDir = this.currentPath.split("/");
-      List<String> listCurrentDir = new ArrayList<String>(Arrays.asList(currentDir));
-
-      for (String p : argsArray) {
-        if (!p.equals(".")) {
-
-          if (p.equals("..")) {
-            listCurrentDir.remove(listCurrentDir.size() - 1);
-          } else {
-            listCurrentDir.add(p);
-          }
-
-        }
-      }
-
-      String newPwd = String.join("/", listCurrentDir);
-      Path newPath = Paths.get(newPwd);
-
-      if (Files.isDirectory(newPath)) {
-        this.currentPath = newPwd;
-      }
-
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-  }
 
   public static byte[] readFileToByteArray(String fileName) {
     File file = new File(fileName);
@@ -216,6 +168,10 @@ class ClientThread extends Thread {
     // /* envia o primeiro pacote */
     try {
       this.dgramSocket.send(request);
+    // Espera confirmação de recebimento para continuar a enviar
+      byte[] buffer = new byte[1];
+      DatagramPacket okay = new DatagramPacket(buffer, buffer.length);	
+      this.dgramSocket.receive(okay);
     } catch (IOException e) {
       e.printStackTrace();
     }
@@ -236,16 +192,7 @@ class ClientThread extends Thread {
       }
       
       byte[] chunk = Arrays.copyOfRange(fileContent, start, end);
-      // int oldStart =start;
 
-      
-      // if (end > fileContent.length){
-      //   // int diffEnd = fileContent.length - oldStart;
-      //   // end = diffEnd > 1024 ? fileContent.length - (diffEnd - 1024) : diffEnd;
-      //   // start = oldStart;
-      //   end = fileContent.length;
-      //   chunk = Arrays.copyOfRange(fileContent, start, end);
-      // }
       
 
 
@@ -269,8 +216,8 @@ class ClientThread extends Thread {
         
         // Espera confirmação de recebimento para continuar a enviar
         byte[] buffer = new byte[1];
-        DatagramPacket reply = new DatagramPacket(buffer, buffer.length);	
-        this.dgramSocket.receive(reply);
+        DatagramPacket okay = new DatagramPacket(buffer, buffer.length);	
+        this.dgramSocket.receive(okay);
         System.out.println("voltou a enviar");
 
         start = end;
@@ -320,15 +267,6 @@ class ClientThread extends Thread {
         String[] args = buffer.split(" ", 2);
 
         switch (args[0]) {
-          case "GETFILES":
-            this.lsCommand();
-            break;
-          case "CHDIR":
-            this.cdCommand(args[1]);
-            break;
-          case "GETDIRS":
-            this.getDirs();
-            break;
           case "UPLOAD":
             this.sendFile(args[1]);
             break;

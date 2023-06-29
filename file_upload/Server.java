@@ -5,6 +5,37 @@ package file_upload;
  *  * 
  * Autores: Jhonatan Guilherme de Oliveira Cunha, Jessé Pires Barbato Rocha
  * 
+ * 
+ * A requisição ao servidor foi feita utilizando o seguinte protocolo:
+ * 
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                  Tamanho nome arquivo(1 byte)                 |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                    Nome Arquivo (255 bytes)                   |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |               Tamanho total do arquivo (4 bytes)              |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |               Quantidade de bytes chunk (2 bytes)             |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * 
+ * 
+ * 1. O cliente constroi o header acima, informando os dados do arquivo.
+ * 2. O cliente envia o pacote ao servidor e aguarda a resposta de 1 byte.
+ * 3. O cliente começa a enviar os chunks de bytes 1024 bytes
+ * 
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                       Chunk (1024 bytes)                      |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * 
+ * 4. A cada chunk enviado, o cliente aguarda o servidor responder com 1 byte de confirmação.
+ * 5. Após o envio de todos os chunks, o cliente envia o checksum ao servidor.
+ * 
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *    |                       Checksum (20 bytes)                     |
+ *    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ * 
+ * 6. O servidor calcula o checksum do arquivo chegou para ele, caso for válido, o arquivo é escrito em disco.
+ * 
  * Data de criação: 17/03/2023
  * Data última atualização: 11/04/2023 
  */
@@ -103,6 +134,12 @@ class ServerThread extends Thread {
                 int chunkAmmount = amountOfChunks > 1 ? amountOfChunks : 1;
 
                 byte[] file = new byte[fileSize];
+
+                // Enviado pacote de confirmação de recebimento
+                byte[] okay = new byte[1];
+                okay[0] = 1;
+                DatagramPacket teste = new DatagramPacket(okay, okay.length, reply.getAddress(), reply.getPort()); 
+
                 System.out.printf("espera-se %d\n", chunkAmmount);
 
                 for (int i = 0; i < chunkAmmount; i++) {
@@ -131,9 +168,9 @@ class ServerThread extends Thread {
                     }
 
                     // Enviado pacote de confirmação de recebimento
-                    byte[] okay = new byte[1];
+                    okay = new byte[1];
                     okay[0] = 1;
-                    DatagramPacket teste = new DatagramPacket(okay, okay.length, reply.getAddress(), reply.getPort()); 
+                    teste = new DatagramPacket(okay, okay.length, reply.getAddress(), reply.getPort()); 
                     System.out.println(" envou confimracao");
                     this.dgramSocket.send(teste);
                 }
@@ -142,7 +179,7 @@ class ServerThread extends Thread {
                 header = ByteBuffer.wrap(buffer);
                 header.order(ByteOrder.BIG_ENDIAN);
 
-                DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
+                teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
 
                 this.dgramSocket.send(teste); // envia o pacote
 
