@@ -70,6 +70,7 @@ class ClientThread extends Thread {
       this.port = port;
 
       this.currentPath = System.getProperty("user.dir");
+      System.out.println(currentPath);
     } catch (Exception ioe) {
       System.out.println("IOE:" + ioe.getMessage());
     }
@@ -157,7 +158,9 @@ class ClientThread extends Thread {
 
   public static byte[] readFileToByteArray(String fileName) {
     File file = new File(fileName);
-    byte[] fileContent = new byte[(int) file.length()];
+    
+    long size = file.length();
+    byte[] fileContent = new byte[(int)size];
 
     try (FileInputStream fis = new FileInputStream(file)) {
       fis.read(fileContent);
@@ -170,13 +173,14 @@ class ClientThread extends Thread {
 
   void sendFile(String filename) {
     String path = this.currentPath + "/" + filename;
+    System.out.println(path);
 
     File file = new File(path);
 
     if (!file.exists())
       return;
 
-    ByteBuffer header = ByteBuffer.allocate(1310); // Criando header
+    ByteBuffer header = ByteBuffer.allocate(1311); // Criando header
     header.order(ByteOrder.BIG_ENDIAN);
 
     byte lengthFilename = (byte) filename.length();
@@ -196,6 +200,7 @@ class ClientThread extends Thread {
     // Adicionando tamanho do arquivo no header
     byte[] fileContent = readFileToByteArray(path);
     int fileSize = fileContent.length;
+    System.out.printf("fileSize: %d\n", fileSize);
     header.putInt(POS_FILE_SIZE, fileSize);
 
     // transformando header in byteArray
@@ -216,7 +221,7 @@ class ClientThread extends Thread {
     }
 
     // Calculando quantidade de chunks totais
-    int amountOfChunks = fileSize / 1024;
+    int amountOfChunks = (int) Math.ceil((double) fileSize / 1024);
     int chunkAmmount = amountOfChunks > 1 ? amountOfChunks : 1;
 
     int start = 0;
@@ -224,12 +229,25 @@ class ClientThread extends Thread {
 
     // enviando chunks
     for (int i = 0; i < chunkAmmount; i++) {
-      byte[] chunk = Arrays.copyOfRange(fileContent, start, end);
-      start = end;
-      end += 1024;
+      System.out.printf("enviou chunk %d\n", i+1);
 
-      if (end > fileContent.length)
+      if (end > fileContent.length){
         end = fileContent.length;
+      }
+      
+      byte[] chunk = Arrays.copyOfRange(fileContent, start, end);
+      // int oldStart =start;
+
+      
+      // if (end > fileContent.length){
+      //   // int diffEnd = fileContent.length - oldStart;
+      //   // end = diffEnd > 1024 ? fileContent.length - (diffEnd - 1024) : diffEnd;
+      //   // start = oldStart;
+      //   end = fileContent.length;
+      //   chunk = Arrays.copyOfRange(fileContent, start, end);
+      // }
+      
+
 
       short ammounOfBytesInChunk = (short) (chunk.length);
       header.putShort(POS_CHUNK_SIZE, ammounOfBytesInChunk);
@@ -246,35 +264,44 @@ class ClientThread extends Thread {
           this.port);
 
       try {
+        System.out.println("vai enviar");
         this.dgramSocket.send(request);
+        /* cria um buffer vazio para receber datagramas */
+        byte[] buffer = new byte[1311];
+        DatagramPacket reply = new DatagramPacket(buffer, buffer.length);	
+        this.dgramSocket.receive(reply);
+        System.out.println("voltou a enviar");
+
+        start = end;
+        end += 1024;
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
 
     // Create SHA-1 message digest instance
-    MessageDigest md;
-    try {
-      md = MessageDigest.getInstance("SHA-1");
-      // Convert input string to byte array
-      byte[] hashBytes = md.digest(fileContent);
+    // MessageDigest md;
+    // try {
+    //   md = MessageDigest.getInstance("SHA-1");
+    //   // Convert input string to byte array
+    //   byte[] hashBytes = md.digest(fileContent);
 
-      header.position(POS_CHECKSUM);
-      header.put(hashBytes);
+    //   header.position(POS_CHECKSUM);
+    //   header.put(hashBytes);
 
-      request = new DatagramPacket(
-          headerByteArray,
-          headerByteArray.length,
-          this.address,
-          this.port);
+    //   request = new DatagramPacket(
+    //       headerByteArray,
+    //       headerByteArray.length,
+    //       this.address,
+    //       this.port);
 
-      this.dgramSocket.send(request);
-
-    } catch (NoSuchAlgorithmException e) {
-      e.printStackTrace();
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+    //   this.dgramSocket.send(request);
+      
+    // } catch (NoSuchAlgorithmException e) {
+    //   e.printStackTrace();
+    // } catch (IOException e) {
+    //   e.printStackTrace();
+    // }
 
   }
 

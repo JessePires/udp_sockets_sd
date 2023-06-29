@@ -1,4 +1,4 @@
-package file_upload;
+
 
 /**
  * Descrição: Servidor UDP para upload de arquivos.
@@ -14,8 +14,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.MessageDigest;
 import java.util.Arrays;
-
-
 import java.io.*;
 
 public class Server {
@@ -79,7 +77,7 @@ class ServerThread extends Thread {
             DatagramPacket reply;
             while (true) {
 
-                buffer = new byte[1311];
+                buffer = new byte[1310];
                 reply = new DatagramPacket(buffer, buffer.length);
 
                 /* aguarda datagramas */
@@ -99,55 +97,47 @@ class ServerThread extends Thread {
                 String filename = new String(fileNameInBytes);
                 int fileSize = header.getInt(POS_FILE_SIZE);
 
-                int amountOfChunks = (int) Math.ceil((double) fileSize / 1024);
+                int amountOfChunks = fileSize / 1024;
                 int chunkAmmount = amountOfChunks > 1 ? amountOfChunks : 1;
 
                 byte[] file = new byte[fileSize];
                 System.out.printf("espera-se %d\n", chunkAmmount);
 
                 for (int i = 0; i < chunkAmmount; i++) {
-                    System.out.printf("recebeu chunk %d\n", i+1);
+                    System.out.printf("recebeu chunk %d\n", i);
                     this.dgramSocket.receive(reply);
                     header = ByteBuffer.wrap(buffer);
                     header.order(ByteOrder.BIG_ENDIAN);
                     header.position(POS_ORDER);
-                    int order = header.getInt();
-                    System.out.println(order);
+                    short order = header.getShort();
                     header.position(POS_CHUNK_SIZE);
                     short chunkSize = header.getShort();
-                    int start = order * 1024;
-                    int end = start + 1024;
-                    
+                    int start = order * i;
+                    int end = start + chunkSize;
 
-                    if(end > fileSize){
-                        end = fileSize;
-                    }
-
-
-                    for (int j = start, c = 0; j < end; j++, c++) {
-                        int index = POS_CHUNK + c;
-                        System.out.printf("j %d - index %d - max-file size: %d\n", j, index, fileSize);
-                        file[j] = header.get(index);
-                    }
                     DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
-                            System.out.println(" envou confimracao");
 
                     this.dgramSocket.send(teste); // envia o pacote
+
+                    for (int j = start; j < end; j++) {
+                        file[j] = header.get(POS_CHUNK + j);
+                    }
                 }
 
-                // this.dgramSocket.receive(reply);
-                // header = ByteBuffer.wrap(buffer);
-                // header.order(ByteOrder.BIG_ENDIAN);
+                this.dgramSocket.receive(reply);
+                header = ByteBuffer.wrap(buffer);
+                header.order(ByteOrder.BIG_ENDIAN);
+                header.get(POS_CHECKSUM);
 
-                // DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
+                DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
 
-                // this.dgramSocket.send(teste); // envia o pacote
+                this.dgramSocket.send(teste); // envia o pacote
 
-                // byte[] checksum = new byte[CHECKSUM_SIZE];
+                byte[] checksum = new byte[CHECKSUM_SIZE];
 
-                // for (int i = 0; i < CHECKSUM_SIZE; i++) {
-                //     checksum[i] = header.get(POS_CHECKSUM + i);
-                // }
+                for (int i = 0; i < CHECKSUM_SIZE; i++) {
+                    checksum[i] = header.get(POS_CHECKSUM + i);
+                }
 
                 // MessageDigest md;
                 try {
@@ -171,6 +161,8 @@ class ServerThread extends Thread {
                 } catch (Exception e) {
                     System.out.println(e.getStackTrace().toString());
                 }
+
+                System.out.println("aaa");
             }
         } catch (Exception e) {
             System.out.println("e: " + e.getMessage());
