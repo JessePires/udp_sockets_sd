@@ -129,36 +129,39 @@ class ServerThread extends Thread {
                         System.out.printf("j %d - index %d - max-file size: %d\n", j, index, fileSize);
                         file[j] = header.get(index);
                     }
-                    DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
-                            System.out.println(" envou confimracao");
 
-                    this.dgramSocket.send(teste); // envia o pacote
+                    // Enviado pacote de confirmação de recebimento
+                    byte[] okay = new byte[1];
+                    okay[0] = 1;
+                    DatagramPacket teste = new DatagramPacket(okay, okay.length, reply.getAddress(), reply.getPort()); 
+                    System.out.println(" envou confimracao");
+                    this.dgramSocket.send(teste);
                 }
 
-                // this.dgramSocket.receive(reply);
-                // header = ByteBuffer.wrap(buffer);
-                // header.order(ByteOrder.BIG_ENDIAN);
+                this.dgramSocket.receive(reply);
+                header = ByteBuffer.wrap(buffer);
+                header.order(ByteOrder.BIG_ENDIAN);
 
-                // DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
+                DatagramPacket teste = new DatagramPacket(reply.getData(), reply.getLength(), reply.getAddress(), reply.getPort()); // cria um pacote com os dados
 
-                // this.dgramSocket.send(teste); // envia o pacote
+                this.dgramSocket.send(teste); // envia o pacote
 
-                // byte[] checksum = new byte[CHECKSUM_SIZE];
+                byte[] checksum = new byte[CHECKSUM_SIZE];
 
-                // for (int i = 0; i < CHECKSUM_SIZE; i++) {
-                //     checksum[i] = header.get(POS_CHECKSUM + i);
-                // }
+                for (int i = 0; i < CHECKSUM_SIZE; i++) {
+                    checksum[i] = header.get(POS_CHECKSUM + i);
+                }
 
-                // MessageDigest md;
+                MessageDigest md;
                 try {
-                    // md = MessageDigest.getInstance("SHA-1");
+                    md = MessageDigest.getInstance("SHA-1");
                     // Convert input string to byte array
-                    // byte[] hashBytes = md.digest(file);
+                    byte[] hashBytes = md.digest(file);
 
-                    // if (!Arrays.equals(checksum, hashBytes)) {
-                    //     System.out.println("Algo de errado ocorreu no upload.");
-                    //     return;
-                    // }
+                    if (!Arrays.equals(checksum, hashBytes)) {
+                        System.out.println("Algo de errado ocorreu no upload.");
+                        return;
+                    }
 
                     try {
                         FileOutputStream fos = new FileOutputStream(this.currentPath + "/" + filename);

@@ -266,8 +266,9 @@ class ClientThread extends Thread {
       try {
         System.out.println("vai enviar");
         this.dgramSocket.send(request);
-        /* cria um buffer vazio para receber datagramas */
-        byte[] buffer = new byte[1311];
+        
+        // Espera confirmação de recebimento para continuar a enviar
+        byte[] buffer = new byte[1];
         DatagramPacket reply = new DatagramPacket(buffer, buffer.length);	
         this.dgramSocket.receive(reply);
         System.out.println("voltou a enviar");
@@ -280,28 +281,28 @@ class ClientThread extends Thread {
     }
 
     // Create SHA-1 message digest instance
-    // MessageDigest md;
-    // try {
-    //   md = MessageDigest.getInstance("SHA-1");
-    //   // Convert input string to byte array
-    //   byte[] hashBytes = md.digest(fileContent);
+    MessageDigest md;
+    try {
+      md = MessageDigest.getInstance("SHA-1");
+      // Convert input string to byte array
+      byte[] hashBytes = md.digest(fileContent);
 
-    //   header.position(POS_CHECKSUM);
-    //   header.put(hashBytes);
+      header.position(POS_CHECKSUM);
+      header.put(hashBytes);
 
-    //   request = new DatagramPacket(
-    //       headerByteArray,
-    //       headerByteArray.length,
-    //       this.address,
-    //       this.port);
+      request = new DatagramPacket(
+          headerByteArray,
+          headerByteArray.length,
+          this.address,
+          this.port);
 
-    //   this.dgramSocket.send(request);
+      this.dgramSocket.send(request);
       
-    // } catch (NoSuchAlgorithmException e) {
-    //   e.printStackTrace();
-    // } catch (IOException e) {
-    //   e.printStackTrace();
-    // }
+    } catch (NoSuchAlgorithmException e) {
+      e.printStackTrace();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
 
   }
 
