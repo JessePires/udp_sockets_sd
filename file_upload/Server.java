@@ -139,6 +139,7 @@ class ServerThread extends Thread {
                 byte[] okay = new byte[1];
                 okay[0] = 1;
                 DatagramPacket teste = new DatagramPacket(okay, okay.length, reply.getAddress(), reply.getPort()); 
+                this.dgramSocket.send(teste);
 
                 System.out.printf("espera-se %d\n", chunkAmmount);
 

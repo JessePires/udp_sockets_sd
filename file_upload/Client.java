@@ -129,8 +129,10 @@ class ClientThread extends Thread {
 
     File file = new File(path);
 
-    if (!file.exists())
+    if (!file.exists()){
+      System.out.printf("Arquivo '%s' não encontrado\n", path);
       return;
+    }
 
     ByteBuffer header = ByteBuffer.allocate(1311); // Criando header
     header.order(ByteOrder.BIG_ENDIAN);
